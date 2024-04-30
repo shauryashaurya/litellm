@@ -9,9 +9,9 @@ Log Proxy Input, Output, Exceptions using Custom Callbacks, Langfuse, OpenTeleme
 
 - [Async Custom Callbacks](#custom-callback-class-async)
 - [Async Custom Callback APIs](#custom-callback-apis-async)
-- [Logging to DataDog](#logging-proxy-inputoutput---datadog)
 - [Logging to Langfuse](#logging-proxy-inputoutput---langfuse)
 - [Logging to s3 Buckets](#logging-proxy-inputoutput---s3-buckets)
+- [Logging to DataDog](#logging-proxy-inputoutput---datadog)
 - [Logging to DynamoDB](#logging-proxy-inputoutput---dynamodb)
 - [Logging to Sentry](#logging-proxy-inputoutput---sentry)
 - [Logging to Traceloop (OpenTelemetry)](#logging-proxy-inputoutput-traceloop-opentelemetry)
@@ -401,7 +401,7 @@ litellm_settings:
 Start the LiteLLM Proxy and make a test request to verify the logs reached your callback API 
 
 ## Logging Proxy Input/Output - Langfuse
-We will use the `--config` to set `litellm.success_callback = ["langfuse"]` this will log all successfull LLM calls to langfuse
+We will use the `--config` to set `litellm.success_callback = ["langfuse"]` this will log all successfull LLM calls to langfuse. Make sure to set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in your environment
 
 **Step 1** Install langfuse
 
@@ -419,7 +419,13 @@ litellm_settings:
   success_callback: ["langfuse"]
 ```
 
-**Step 3**: Start the proxy, make a test request
+**Step 3**: Set required env variables for logging to langfuse
+```shell
+export LANGFUSE_PUBLIC_KEY="pk_kk"
+export LANGFUSE_SECRET_KEY="sk_ss
+```
+
+**Step 4**: Start the proxy, make a test request
 
 Start proxy
 ```shell
@@ -537,6 +543,52 @@ print(response)
 
 </TabItem>
 </Tabs>
+
+
+### Team based Logging to Langfuse
+
+**Example:**
+
+This config would send langfuse logs to 2 different langfuse projects, based on the team id 
+
+```yaml
+litellm_settings:
+  default_team_settings: 
+    - team_id: my-secret-project
+      success_callback: ["langfuse"]
+      langfuse_public_key: os.environ/LANGFUSE_PUB_KEY_1 # Project 1
+      langfuse_secret: os.environ/LANGFUSE_PRIVATE_KEY_1 # Project 1
+    - team_id: ishaans-secret-project
+      success_callback: ["langfuse"]
+      langfuse_public_key: os.environ/LANGFUSE_PUB_KEY_2 # Project 2
+      langfuse_secret: os.environ/LANGFUSE_SECRET_2 # Project 2
+```
+
+Now, when you [generate keys](./virtual_keys.md) for this team-id 
+
+```bash
+curl -X POST 'http://0.0.0.0:4000/key/generate' \
+-H 'Authorization: Bearer sk-1234' \
+-H 'Content-Type: application/json' \
+-d '{"team_id": "ishaans-secret-project"}'
+```
+
+All requests made with these keys will log data to their team-specific logging.
+
+### Redacting Messages, Response Content from Langfuse Logging 
+
+Set `litellm.turn_off_message_logging=True` This will prevent the messages and responses from being logged to langfuse, but request metadata will still be logged.
+
+```yaml
+model_list:
+ - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: gpt-3.5-turbo
+litellm_settings:
+  success_callback: ["langfuse"]
+  turn_off_message_logging: True
+```
+
 
 
 ## Logging Proxy Input/Output - DataDog

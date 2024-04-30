@@ -95,7 +95,15 @@ def common_checks(
                 f"'user' param not passed in. 'enforce_user_param'={general_settings['enforce_user_param']}"
             )
     # 7. [OPTIONAL] If 'litellm.max_budget' is set (>0), is proxy under budget
-    if litellm.max_budget > 0 and global_proxy_spend is not None:
+    if (
+        litellm.max_budget > 0
+        and global_proxy_spend is not None
+        # only run global budget checks for OpenAI routes
+        # Reason - the Admin UI should continue working if the proxy crosses it's global budget
+        and route in LiteLLMRoutes.openai_routes.value
+        and route != "/v1/models"
+        and route != "/models"
+    ):
         if global_proxy_spend > litellm.max_budget:
             raise Exception(
                 f"ExceededBudget: LiteLLM Proxy has exceeded its budget. Current spend: {global_proxy_spend}; Max Budget: {litellm.max_budget}"
@@ -104,6 +112,13 @@ def common_checks(
 
 
 def _allowed_routes_check(user_route: str, allowed_routes: list) -> bool:
+    """
+    Return if a user is allowed to access route. Helper function for `allowed_routes_check`.
+
+    Parameters:
+    - user_route: str - the route the user is trying to call
+    - allowed_routes: List[str|LiteLLMRoutes] - the list of allowed routes for the user.
+    """
     for allowed_route in allowed_routes:
         if (
             allowed_route == LiteLLMRoutes.openai_routes.name
@@ -126,7 +141,7 @@ def _allowed_routes_check(user_route: str, allowed_routes: list) -> bool:
 
 
 def allowed_routes_check(
-    user_role: Literal["proxy_admin", "team"],
+    user_role: Literal["proxy_admin", "team", "user"],
     user_route: str,
     litellm_proxy_roles: LiteLLM_JWTAuth,
 ) -> bool:
